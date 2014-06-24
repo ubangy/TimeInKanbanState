@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TimeInKanbanState</title>
+
+    <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function () {
+                Ext.define("CustomApp",{extend:"Rally.app.App",componentCls:"app",items:[{xtype:"container",itemId:"pulldown-container",layout:{type:"hbox",align:"stretch"}}],infinity:new Date("9999-01-01T00:00:00.000Z"),scheduleStates:["Idea","Defined","In-Progress","Completed","Accepted","Released"],launch:function(){this._loadIterations()},_loadIterations:function(){var me=this,iterComboBox=Ext.create("Rally.ui.combobox.IterationComboBox",{itemId:"iteration-combobox",fieldLabel:"Iteration",labelAlign:"right",width:300,listeners:{select:me._loadUserStories,ready:me._loadUserStories,scope:me}});me.down("#pulldown-container").add(iterComboBox)},_getFiltersForUserStories:function(iterValue){var iterFilter=Ext.create("Rally.data.wsapi.Filter",{property:"Iteration",operation:"=",value:iterValue});return iterFilter},_loadUserStories:function(){var me=this,selectedIterRef=me.down("#iteration-combobox").getRecord().get("_ref"),myFilters=me._getFiltersForUserStories(selectedIterRef);me.userStoryStore?(me.userStoryStore.setFilter(myFilters),me.userStoryStore.load()):me.userStoryStore=Ext.create("Rally.data.wsapi.Store",{model:"User Story",autoLoad:!0,filter:myFilters,listeners:{load:function(myStore,myData,success){me.arrayOfUserStories=[],_.each(myData,function(record){me.arrayOfUserStories.push(record.get("ObjectID"))}),me._loadLBData()},scope:this},fetch:["FormattedID"]})},_getFiltersForLookback:function(stories){var storyFilter=Ext.create("Rally.data.lookback.QueryFilter",{property:"ObjectID",operator:"in",value:stories});return storyFilter},_loadLBData:function(){var me=this,myLBFilters=me._getFiltersForLookback(me.arrayOfUserStories);me.snapshotStore=Ext.create("Rally.data.lookback.SnapshotStore",{filters:myLBFilters,hydrate:["ScheduleState","_PreviousValues.ScheduleState"],fetch:["FormattedID","_ValidFrom","_ValidTo","ScheduleState","Name","_PreviousValues","_PreviousValues.ScheduleState"]}),me.snapshotStore.load({params:{removeUnauthorizedSnapshots:!0},callback:function(records){me._queryAndSortStories()}})},_queryAndSortStories:function(){var me=this,gridData=[];_.each(me.arrayOfUserStories,function(story){snapshotDataForChangedState=me.snapshotStore.queryBy(function(item){return null!==item.get("_PreviousValues.ScheduleState")&&item.get("ObjectID")==story}),0!==snapshotDataForChangedState.getCount()&&(row=me._calcStateTimeForStory(snapshotDataForChangedState),gridData.push(row))}),me._createStore(gridData)},_calcStateTimeForStory:function(stateChangedItems){var me=this;return storyRow={},stateChangedItems.each(function(stateRec){var prevState=stateRec.get("ScheduleState"),from=new Date(stateRec.get("_ValidFrom")),to=new Date(stateRec.get("_ValidTo"));Ext.Date.isEqual(to,me.infinity)&&(to=new Date),time=Rally.util.DateTime.getDifference(to,from,"second"),timeSoFar=storyRow[prevState],storyRow[prevState]=null==timeSoFar?time:timeSoFar+time,storyRow.FormattedID=stateRec.get("FormattedID"),storyRow.Name=stateRec.get("Name")}),storyRow},_createStore:function(data){var me=this;me.myStore?me.myStore.loadData(data):(me.myStore=Ext.create("Ext.data.Store",{storeId:"timeInStateStore",fields:["FormattedID","Name","Idea","Defined","In-Progress","Completed","Accepted","Released"],data:{items:data},proxy:{type:"memory",reader:{type:"json",root:"items"}}}),me.grid||me._createGrid())},_createGrid:function(){var me=this;me.grid=Ext.create("Rally.ui.grid.Grid",{columnHeader:!1,store:me.myStore,columnCfgs:[{text:"Story ID",dataIndex:"FormattedID"},{text:"Story Name",dataIndex:"Name"},{text:"Idea State",dataIndex:"Idea",renderer:function(value,metadata,record){return me._formatTime(value)}},{text:"Defined State",dataIndex:"Defined",renderer:function(value,metadata,record){return me._formatTime(value)}},{text:"In-Progress State",dataIndex:"In-Progress",renderer:function(value,metadata,record){return me._formatTime(value)}},{text:"Completed State",dataIndex:"Completed",renderer:function(value,metadata,record){return me._formatTime(value)}},{text:"Accepted State",dataIndex:"Accepted",renderer:function(value,metadata,record){return me._formatTime(value)}},{text:"Released State",dataIndex:"Released",renderer:function(value,metadata,record){return me._formatTime(value)}}]}),me.add(me.grid)},_formatTime:function(valueInSeconds){if(0==valueInSeconds)return"";var hours=Ext.util.Format.round(valueInSeconds/3600,0);if(0!=hours)return hours+" hour(s)";var minutes=Ext.util.Format.round(valueInSeconds/60,0);return 0==minutes?"< 1 minute":minutes+" min(s)"}});
+
+            Rally.launchApp('CustomApp', {
+                name:"TimeInKanbanState",
+	            parentRepos:""
+            });
+
+        });
+    </script>
+
+
+    <style type="text/css">
+        .app {
+     /* Add app styles here */
+}
+
+    </style>
+</head>
+<body></body>
+</html>
